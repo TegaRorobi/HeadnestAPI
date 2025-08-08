@@ -1,5 +1,4 @@
 
-# 📘 Headnest Backend API Reference
 
 This document outlines the complete API structure for the Headnest Mental Wellness App, organized by functional categories.
 
