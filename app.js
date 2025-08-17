@@ -2,6 +2,7 @@ const express = require('express');
 const passport = require('passport');
 require("dotenv").config()
 const app = express()
+const userRoutes = require('./routes/userRoutes');
 
 // imported files
 const { connectToDataBase } = require('./src/config/db');
@@ -17,6 +18,7 @@ connectToDataBase()
 
 // Routes
 app.use('/auth', googleAuthRoutes);
+app.use('/users', userRoutes);
 
 // ..............
 app.get("/", (req , res) => {
