@@ -2,11 +2,12 @@ const express = require('express');
 const passport = require('passport');
 require("dotenv").config()
 const app = express()
-const userRoutes = require('./routes/userRoutes');
+
 
 // imported files
 const { connectToDataBase } = require('./src/config/db');
 const googleAuthRoutes = require('./src/auth/googleAuth');
+const userRoutes = require('./src/routes/userRoutes');
 
 // middlewares
 app.use(express.json())
