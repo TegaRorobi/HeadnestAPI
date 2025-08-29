@@ -9,17 +9,21 @@ const logger = require('./logger')
 const { connectToDataBase } = require('./src/config/db');
 const googleAuthRoutes = require('./src/auth/googleAuth');
 const userRoutes = require('./src/routes/userRoutes');
+const authRoutes = require('./src/routes/authRoutes');
 
 // middlewares
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
+
 //connecting to database
 connectToDataBase()
 
 // Routes
-app.use('/auth', googleAuthRoutes);
+//app.use('/auth', googleAuthRoutes); # should be mounted at /auth/oauth/google as defined in ENDPOINTS_PER_USER_STORY.md
+app.use('/auth/oauth/google', googleAuthRoutes);
+app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 
 // ..............
