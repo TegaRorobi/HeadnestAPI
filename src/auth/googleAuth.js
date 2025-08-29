@@ -4,6 +4,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const emailQueue = require('../../queue');
 require('dotenv').config();
 
 const router = express.Router();
@@ -33,6 +34,9 @@ passport.use(
             avatar: profile.photos[0].value,
             password: null, 
           });
+          console.log(`New Google user created: ${user.email}`);
+          console.log('Adding welcome email job to queue...');
+          await emailQueue.add("send-welcome-email", { email: user.email });
         }
 
         return done(null, user);
