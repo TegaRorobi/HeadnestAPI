@@ -90,9 +90,13 @@ router.post('/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-  const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  // This here should be access token, so the expiration duration should reduce (I'd set it to 12 hours)
+  //const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  const accessToken = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '12h' });
+  const refreshToken = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-  res.json({ message: 'Login successful', token, user });
+  //res.json({ message: 'Login successful', token, user });
+  res.json({ message: 'Login successful', token: accessToken, refreshToken, user });
 });
 
 module.exports = router;
