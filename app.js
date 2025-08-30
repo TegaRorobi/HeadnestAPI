@@ -10,6 +10,7 @@ const { connectToDataBase } = require('./src/config/db');
 const googleAuthRoutes = require('./src/auth/googleAuth');
 const userRoutes = require('./src/routes/userRoutes');
 const authRoutes = require('./src/routes/authRoutes');
+const journalRoutes = require('./src/routes/journalRoutes');
 
 // middlewares
 app.use(express.json())
@@ -25,6 +26,7 @@ connectToDataBase()
 app.use('/auth/oauth/google', googleAuthRoutes);
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
+app.use('/api/journals', journalRoutes);
 
 // ..............
 app.get("/", (req , res) => {
