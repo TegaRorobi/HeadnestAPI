@@ -7,9 +7,10 @@ const app = express()
 // imported files
 const logger = require('./logger')
 const { connectToDataBase } = require('./src/config/db');
-const googleAuthRoutes = require('./src/auth/googleAuth');
+// const googleAuthRoutes = require('./src/auth/googleAuth');
 const userRoutes = require('./src/routes/userRoutes');
 const authRoutes = require('./src/routes/authRoutes');
+const therapyRoutes = require('./src/routes/therapyRoutes');
 
 // middlewares
 app.use(express.json())
@@ -22,9 +23,10 @@ connectToDataBase()
 
 // Routes
 //app.use('/auth', googleAuthRoutes); # should be mounted at /auth/oauth/google as defined in ENDPOINTS_PER_USER_STORY.md
-app.use('/auth/oauth/google', googleAuthRoutes);
+// app.use('/auth/oauth/google', googleAuthRoutes);
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
+app.use('/', therapyRoutes);
 
 // ..............
 app.get("/", (req , res) => {
