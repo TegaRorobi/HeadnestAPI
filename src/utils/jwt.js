@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
 
-exports.generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-  });
+module.exports = (userId, role, email) => {
+  return jwt.sign(
+    { id: userId, role, email }, // Add role and optionally email for quick access
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
 };
