@@ -1,22 +1,22 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-<<<<<<< HEAD
-const authMiddleware = require('../middlewares/authMiddleware');
-const {deleteAccount, } = require('../controllers/userController');
 
+// const authMiddleware = require('../middlewares/authMiddleware');
+// const {deleteAccount, } = require('../controllers/userController');
 
+// router.delete('auth/delete', authMiddleware, deleteAccount);
 
-router.delete('auth/delete', authMiddleware, deleteAccount);
-=======
-const auth = require('../middlewares/authMiddleware');
-const {deleteAccount, addPreferences, getPreferences, updatePreferences} = require('../controllers/userController');
+const auth = require("../middlewares/authMiddleware");
+const {
+  deleteAccount,
+  addPreferences,
+  getPreferences,
+  updatePreferences,
+} = require("../controllers/userController");
 
-
-router.delete('/delete', auth, deleteAccount);
+router.delete("/delete", auth, deleteAccount);
 router.post("/preferences", auth, addPreferences);
 router.get("/preferences", auth, getPreferences);
-router.put("/preferences", auth, updatePreferences)
->>>>>>> user-personal-info-and-preferences
+router.put("/preferences", auth, updatePreferences);
 
-
-module.exports = router
+module.exports = router;
