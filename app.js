@@ -1,7 +1,10 @@
 const express = require('express');
 const passport = require('passport');
 require("dotenv").config()
-const app = express()
+const agenda = require("./src/config/agenda");
+require("./src/jobs/sendReminders");
+const app = express();
+
 
 
 // imported files
@@ -19,6 +22,16 @@ app.use(passport.initialize());
 
 //connecting to database
 connectToDataBase()
+
+
+//jobs
+const reminderJob = async() => {
+  await agenda.start();
+  console.log("agenda started");
+  await agenda.every("0 8 * * *", "send morning reminders");
+  await agenda.every("0 18 * * *", "send evening reminders");
+};
+reminderJob()
 
 // Routes
 //app.use('/auth', googleAuthRoutes); # should be mounted at /auth/oauth/google as defined in ENDPOINTS_PER_USER_STORY.md
