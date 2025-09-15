@@ -1,35 +1,41 @@
-const User = require('../models/User');
-const logger = require('../../logger');
+const User = require("../models/User");
+const logger = require("../../logger");
 const Preferences = require("../models/Preferences");
 
 exports.deleteAccount = async (req, res) => {
   try {
     await User.findByIdAndDelete(req.user.id);
 
-    res.json({ message: 'Your account has been deleted  ' });
+    res.json({ message: "Your account has been deleted  " });
   } catch (err) {
-    logger.error(err)
-    res.status(500).json({ message: 'Failed to delete account', error: err.message });
+    logger.error(err);
+    res
+      .status(500)
+      .json({ message: "Failed to delete account", error: err.message });
   }
 };
 
-exports.addPreferences = async(req, res) => {
+exports.addPreferences = async (req, res) => {
   try {
-      const UserId = req.user.id;
-      const state_of_mind = req.body.state_of_mind;
-      const experience = req.body.experience;
-      const reminders = req.body.reminders;
+    const UserId = req.user.id;
+    const state_of_mind = req.body.state_of_mind;
+    const experience = req.body.experience;
+    const reminders = req.body.reminders;
 
-      const response = await Preferences.create({
-        userId: UserId,
-        state_of_mind,
-        experience,
-        reminders,
-      });
-      return res.status(201).json({message: "Preferences selected successfully", data: response});
-  }catch(error){
-      return res.status(500).json({message: "Internal server error", error: error.message});
-    }
+    const response = await Preferences.create({
+      userId: UserId,
+      state_of_mind,
+      experience,
+      reminders,
+    });
+    return res
+      .status(201)
+      .json({ message: "Preferences selected successfully", data: response });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
 };
 
 exports.getPreferences = async (req, res) => {
@@ -74,4 +80,3 @@ exports.updatePreferences = async (req, res) => {
       .json({ message: "Internal server error", error: error.message });
   }
 };
-
