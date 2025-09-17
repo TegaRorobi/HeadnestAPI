@@ -68,6 +68,7 @@ No backend endpoints required — purely frontend implementation with static bra
 | `/mood-checkin/progress` | GET | Retrieve check-in streak |
 | `/community` | GET | Get available support communities |
 | `/community/join/:id` | POST | Join selected community |
+| `POST/community/leave/:id` | POST | Leave community |
 | `/appointments/user` | GET | Show “Chat with Therapist” if active session exists |
 
 ---
@@ -105,7 +106,8 @@ No backend endpoints required — purely frontend implementation with static bra
 
 ---
 
-##  User Story 11: Therapist Booking Screen
+##  User Story 11 to 13 are in same category
+##  User Story 11 Therapist Booking Screen
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

@@ -20,6 +20,30 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
     },
+
+    name: { type: String },
+    email: { type: String, unique: true, required: true },
+    password: { type: String, required: false },
+    role: { type: String, enum: ['patient', 'therapist'], default: 'patient' },
+    bio: { type: String, default: '' },
+    specialties: { type: [String], default: [] },
+    ratePerSession: { type: Number },
+    currency: { type: String, default: 'NGN' },
+    availableHours: { type: [String], default: [] },
+    ratings: { type: Number, default: 0 },
+    googleId: String,
+    reviews: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        rating: Number,
+        comment: String,
+      },
+    ],
+    // Email verification fields
+  isVerified: { type: Boolean, default: false },
+  verificationToken: String,
+  verificationTokenExpires: Date
+  
 }, { timestamps: true });
 
 // Hashing the  password before saving to db
