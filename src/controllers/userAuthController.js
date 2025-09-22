@@ -1,12 +1,12 @@
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-const User = require('../models/User');
+const bcrypt = require('bcrypt');
+const User = require('../models/User.js');
 const generateToken = require('../utils/jwt.js');
+const logger = require('../../logger.js');
+require('dotenv').config();
 
 // =========================
-// REGISTER
+// REGISTER ACCOUNT
 // =========================
 exports.register = async (req, res) => {
   const { name, email, password, googleId, role, ...therapistData } = req.body;
@@ -57,47 +57,43 @@ exports.register = async (req, res) => {
 // LOGIN (Unified)
 // =========================
 exports.login = async (req, res) => {
-  const { email, password, googleId } = req.body;
-
-  try {
+  const { email, password } = req.body;
+  
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+  
+    if (!user.password) {
+      return res.status(400).json({
+        message: "This email was registered via Google. Please login with Google or reset your password."
+      });
     }
+  
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+  
+    const accessToken = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '12h' });
+    const refreshToken = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  
+    
+    res.json({ message: 'Login successful', token: accessToken, refreshToken, user });
+};
 
-    // Handle Google login
-    if (googleId) {
-      if (!user.googleId) {
-        return res.status(400).json({ msg: 'This account is not linked with Google' });
-      }
-      // Optionally verify googleId matches
-      if (user.googleId !== googleId) {
-        return res.status(400).json({ msg: 'Google ID does not match' });
-      }
-    } else {
-      // Handle password login
-      const isMatch = await bcrypt.compare(password, user.password || '');
-      if (!isMatch) {
-        return res.status(400).json({ msg: 'Invalid credentials' });
-      }
-    }
 
-    const token = generateToken(user._id, user.role);
+// =========================
+// DELETE ACCOUNT
+// =========================
 
-    res.status(200).json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
+exports.deleteAccount = async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.user.id);
+
+    res.json({ message: 'Your account has been deleted  ' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Server error' });
+    logger.error(err)
+    res.status(500).json({ message: 'Failed to delete account', error: err.message });
   }
 };
+
 
 // =========================
 // TOKEN REFRESH
@@ -124,3 +120,4 @@ exports.tokenRefresh = async (req, res) => {
     });
   }
 };
+

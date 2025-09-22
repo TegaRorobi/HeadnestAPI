@@ -2,7 +2,6 @@ const express = require('express');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const emailQueue = require('../../queue');
 require('dotenv').config();
@@ -15,7 +14,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: '/auth/google/callback',
+      callbackURL: '/api/google/callback',
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -72,31 +71,5 @@ router.get(
     });
   }
 );
-
-
-// Manual login route
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  const user = await User.findOne({ email });
-  if (!user) return res.status(401).json({ message: "Invalid credentials" });
-
-  if (!user.password) {
-    return res.status(400).json({
-      message: "This email was registered via Google. Please login with Google or reset your password."
-    });
-  }
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
-
-  // This here should be access token, so the expiration duration should reduce (I'd set it to 12 hours)
-  //const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  const accessToken = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '12h' });
-  const refreshToken = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-  //res.json({ message: 'Login successful', token, user });
-  res.json({ message: 'Login successful', token: accessToken, refreshToken, user });
-});
 
 module.exports = router;
