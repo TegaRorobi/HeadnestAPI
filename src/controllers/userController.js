@@ -17,14 +17,13 @@ exports.deleteAccount = async (req, res) => {
 
 exports.addPreferences = async (req, res) => {
   try {
+    console.log(req.user)
     const UserId = req.user.id;
-    const state_of_mind = req.body.state_of_mind;
     const experience = req.body.experience;
     const reminders = req.body.reminders;
 
     const response = await Preferences.create({
       userId: UserId,
-      state_of_mind,
       experience,
       reminders,
     });
@@ -55,15 +54,12 @@ exports.getPreferences = async (req, res) => {
 exports.updatePreferences = async (req, res) => {
   try {
     const UserId = req.user.id;
-    const { state_of_mind, experience, reminders } = req.body;
+    const {experience, reminders } = req.body;
     const getPreference = await Preferences.findOne({ userId: UserId });
     if (!getPreference) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (state_of_mind) {
-      getPreference.state_of_mind = state_of_mind;
-    }
     if (experience) {
       getPreference.experience = experience;
     }

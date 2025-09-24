@@ -6,11 +6,6 @@ const PreferenceSchema = new mongoose.Schema({
         ref: "User",
         required: true
     },
-    state_of_mind: {
-        type: String,
-        required: true,
-        enum: ["calm", "angry", "overwhelmed"]
-    },
     experience: {
         type: String,
         required: true,
@@ -19,6 +14,10 @@ const PreferenceSchema = new mongoose.Schema({
     reminders: {
         type: String,
         enum: ["yes, in the morning", "yes, in the evening", "no"]
+    },
+    lastReminderSentDate: {
+        type: Date,
+        default: null
     }
 });
 
