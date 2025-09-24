@@ -34,7 +34,7 @@ const reminderJob = async() => {
   await agenda.start();
   console.log("agenda started");
   await agenda.every("0 8 * * *", "send morning reminders");
-  await agenda.every("0 18 * * *", "send evening reminders");
+  await agenda.every("00 18 * * *", "send evening reminders");
 };
 reminderJob()
 

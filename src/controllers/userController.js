@@ -17,7 +17,6 @@ exports.deleteAccount = async (req, res) => {
 
 exports.addPreferences = async (req, res) => {
   try {
-    console.log(req.user)
     const UserId = req.user.id;
     const experience = req.body.experience;
     const reminders = req.body.reminders;
