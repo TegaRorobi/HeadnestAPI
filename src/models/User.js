@@ -39,6 +39,13 @@ const userSchema = new mongoose.Schema({
         comment: String,
       },
     ],
+
+    // Settings field
+  settings: {
+    notifications: { type: Boolean, default: true },
+    language: { type: String, default: 'en' },
+    theme: { type: String, default: 'light' }
+  },
     // Email verification fields
   isVerified: { type: Boolean, default: false },
   verificationToken: String,

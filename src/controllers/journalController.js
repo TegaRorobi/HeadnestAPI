@@ -15,27 +15,24 @@ exports.createEntry = async (req, res) => {
   }
 };
 
-exports.getAllEntries = async (req, res) => {
-    try {
-      const entries = await JournalEntry.find({ user: req.user.id })
-        .populate('mood')
-        .sort({ createdAt: -1 });
-      res.json(entries);
-    } catch (err) {
-      res.status(500).json({
-        message: 'Failed to fetch journal entries',
-        error: err.message
-      });
-    }
-  };
-  
-
-exports.getUserEntries = async (req, res) => {
+exports.getEntries = async (req, res) => {
   try {
-    const entries = await JournalEntry.find({ user: req.user.id }).sort({ createdAt: -1 });
+    const { includeMood } = req.query;
+
+    let query = JournalEntry.find({ user: req.user.id }).sort({ createdAt: -1 });
+
+    // If ?includeMood=true is passed in query, populate mood
+    if (includeMood === 'true') {
+      query = query.populate('mood');
+    }
+
+    const entries = await query;
     res.status(200).json(entries);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch journal entries', error: err.message });
+    res.status(500).json({
+      message: 'Failed to fetch journal entries',
+      error: err.message,
+    });
   }
 };
 

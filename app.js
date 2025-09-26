@@ -35,7 +35,7 @@ connectToDataBase()
 
 app.use('/auth', googleAuthRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api', userRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/journals', journalRoutes);
 app.use('/api', moodRoutes);
 app.use('/api', communityRoutes);
