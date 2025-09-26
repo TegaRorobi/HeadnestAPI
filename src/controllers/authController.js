@@ -1,9 +1,10 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-const User = require('../models/User');
-const generateToken = require('../utils/jwt.js');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+const User = require("../models/User");
+const generateToken = require("../utils/jwt.js");
+const sendVerificationLink = require("../middlewares/validateEmail");
 
 // =========================
 // REGISTER
@@ -15,7 +16,7 @@ exports.register = async (req, res) => {
     // Check if user already exists
     let existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ msg: 'Email is already in use' });
+      return res.status(400).json({ msg: "Email is already in use" });
     }
 
     // Hash password only if provided (non-Google signups)
@@ -38,6 +39,8 @@ exports.register = async (req, res) => {
 
     const token = generateToken(User._id, User.role, User.email);
 
+    await sendVerificationLink.sendVerificationLink(newUser);
+
     res.status(201).json({
       token,
       user: {
@@ -45,11 +48,13 @@ exports.register = async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
+        message:
+          "User created successfully. Check email for verification link.",
       },
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: 'Server error' });
+    res.status(500).json({ msg: "Server error" });
   }
 };
 
@@ -62,23 +67,25 @@ exports.login = async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ msg: "Invalid credentials" });
     }
 
     // Handle Google login
     if (googleId) {
       if (!user.googleId) {
-        return res.status(400).json({ msg: 'This account is not linked with Google' });
+        return res
+          .status(400)
+          .json({ msg: "This account is not linked with Google" });
       }
       // Optionally verify googleId matches
       if (user.googleId !== googleId) {
-        return res.status(400).json({ msg: 'Google ID does not match' });
+        return res.status(400).json({ msg: "Google ID does not match" });
       }
     } else {
       // Handle password login
-      const isMatch = await bcrypt.compare(password, user.password || '');
+      const isMatch = await bcrypt.compare(password, user.password || "");
       if (!isMatch) {
-        return res.status(400).json({ msg: 'Invalid credentials' });
+        return res.status(400).json({ msg: "Invalid credentials" });
       }
     }
 
@@ -95,10 +102,71 @@ exports.login = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: 'Server error' });
+    res.status(500).json({ msg: "Server error" });
   }
 };
 
+// =========================
+// VERIFY CODE
+// =========================
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { email, token } = req.query;
+    if (!email || !token) {
+      return res.status(400).json({ message: "Missing token or email" });
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.json({ message: "Already verified" });
+    }
+
+    if (
+      !user.verificationTokenExpires ||
+      Date.now() > user.verificationTokenExpires
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Verification Link expired. Request a new one" });
+    }
+
+    const match = await bcrypt.compare(token, user.verificationToken || "");
+    if (!match) {
+      return res.status(400).json({ message: "Invalid Verification Link" });
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpires = undefined;
+    await user.save();
+
+    res.json({ message: "Email verified successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.resendLink = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (user.isVerified) {
+      return res.json({ message: "Already verified" });
+    }
+
+    await sendVerificationLink.sendVerificationLink(user);
+    res.json({ message: "Verification Link resent" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 // =========================
 // TOKEN REFRESH
 // =========================
@@ -106,7 +174,7 @@ exports.tokenRefresh = async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) {
-      return res.status(401).json({ message: 'Refresh token is required.' });
+      return res.status(401).json({ message: "Refresh token is required." });
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
@@ -114,7 +182,7 @@ exports.tokenRefresh = async (req, res) => {
     const newAccessToken = jwt.sign(
       { id: decoded.id, email: decoded.email },
       process.env.JWT_SECRET,
-      { expiresIn: '12h' }
+      { expiresIn: "12h" }
     );
 
     return res.status(200).json({ accessToken: newAccessToken });
