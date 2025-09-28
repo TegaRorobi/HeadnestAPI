@@ -1,0 +1,607 @@
+const Payment = require('../models/Payment');
+const Booking = require('../models/Booking');
+const PaystackService = require('../config/paystack');
+const crypto = require('crypto');
+
+// :::::::GET PAYMENT METHODS
+// List all available payment options
+const getPaymentMethods = async (req, res) => {
+  try {
+    const paymentMethods = PaystackService.getPaymentMethods();
+
+    const banksResult = await PaystackService.getBanks();
+    
+    let banks = [];
+    if (banksResult.success) {
+      banks = banksResult.data.filter(bank => bank.country === 'Nigeria').slice(0, 20);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment methods retrieved successfully',
+      data: {
+        paymentMethods,
+        banks: banks.map(bank => ({
+          id: bank.id,
+          name: bank.name,
+          code: bank.code,
+          slug: bank.slug
+        }))
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error getting payment methods',
+      error: error.message
+    });
+  }
+};
+
+
+// :::::::INITIATE PAYMENT
+// Begin payment transaction
+const initiatePayment = async (req, res) => {
+  try {
+    const { bookingId, paymentMethod } = req.body;
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+
+    if (!bookingId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking ID is required'
+      });
+    }
+
+    const booking = await Booking.findById(bookingId).populate('therapistId', 'name');
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    if (booking.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only pay for your own bookings'
+      });
+    }
+
+    const existingPayment = await Payment.findOne({ 
+      bookingId, 
+      status: 'success' 
+    });
+
+    if (existingPayment) {
+      return res.status(400).json({
+        success: false,
+        message: 'This booking has already been paid for'
+      });
+    }
+
+    const therapySessionPrice = 15000;
+    const amount = PaystackService.nairaToKobo(therapySessionPrice);
+
+    // Generate unique reference
+    const reference = PaystackService.generateReference(userId);
+
+    // Initialize payment with Paystack
+    const paystackResponse = await PaystackService.initializePayment({
+      email: userEmail,
+      amount: amount,
+      reference: reference,
+      callback_url: `${process.env.CLIENT_URL || 'http://localhost:3000'}/payment/callback`,
+      metadata: {
+        bookingId: bookingId.toString(),
+        userId: userId.toString(),
+        therapistId: booking.therapistId._id.toString(),
+        therapistName: booking.therapistId.name,
+        appointmentDate: booking.appointmentDate,
+        sessionType: 'therapy_session'
+      }
+    });
+
+    if (!paystackResponse.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to initialize payment',
+        error: paystackResponse.error
+      });
+    }
+
+    // Create payment record in database
+    const payment = new Payment({
+      userId,
+      bookingId,
+      paystackReference: reference,
+      amount,
+      currency: 'NGN',
+      paymentMethod: paymentMethod || 'card',
+      status: 'pending',
+      paystackData: {
+        authorization_url: paystackResponse.data.authorization_url,
+        access_code: paystackResponse.data.access_code,
+        reference: paystackResponse.data.reference
+      },
+      metadata: {
+        session_type: 'therapy_session',
+        therapist_id: booking.therapistId._id,
+        appointment_date: booking.appointmentDate
+      }
+    });
+
+    await payment.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Payment initialized successfully',
+      data: {
+        paymentId: payment._id,
+        reference: reference,
+        amount: PaystackService.koboToNaira(amount),
+        currency: 'NGN',
+        authorization_url: paystackResponse.data.authorization_url,
+        access_code: paystackResponse.data.access_code,
+        booking: {
+          id: booking._id,
+          therapist: booking.therapistId.name,
+          appointmentDate: booking.appointmentDate
+        }
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error initiating payment',
+      error: error.message
+    });
+  }
+};
+
+
+
+// :::::::VERIFY IF THE PAYMENT IS SUCCESSFULL
+
+const verifyPayment = async (req, res) => {
+  try {
+    const { reference } = req.body;
+    const userId = req.user.id;
+
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment reference is required'
+      });
+    }
+
+    const payment = await Payment.findOne({ paystackReference: reference });
+    
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment record not found'
+      });
+    }
+
+    if (payment.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // If already verified, return existing data
+    if (payment.status === 'success') {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment already verified',
+        data: {
+          paymentId: payment._id,
+          reference: payment.paystackReference,
+          amount: PaystackService.koboToNaira(payment.amount),
+          status: payment.status,
+          verifiedAt: payment.verifiedAt
+        }
+      });
+    }
+
+    // Verify with Paystack
+    const verificationResult = await PaystackService.verifyPayment(reference);
+
+    if (!verificationResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment verification failed',
+        error: verificationResult.error
+      });
+    }
+
+    const paystackData = verificationResult.data;
+
+    // Update payment status based on Paystack response
+    const paymentStatus = paystackData.status === 'success' ? 'success' : 'failed';
+    
+    payment.status = paymentStatus;
+    payment.verifiedAt = paymentStatus === 'success' ? new Date() : null;
+    payment.paystackData = {
+      ...payment.paystackData,
+      transaction_id: paystackData.id,
+      gateway_response: paystackData.gateway_response,
+      paid_at: paystackData.paid_at,
+      channel: paystackData.channel,
+      fees: paystackData.fees,
+      customer: paystackData.customer
+    };
+
+    await payment.save();
+
+    // If payment successful, update booking status
+    if (paymentStatus === 'success') {
+      await Booking.findByIdAndUpdate(payment.bookingId, { 
+        status: 'paid',
+        paidAt: new Date()
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Payment ${paymentStatus === 'success' ? 'successful' : 'failed'}`,
+      data: {
+        paymentId: payment._id,
+        reference: payment.paystackReference,
+        amount: PaystackService.koboToNaira(payment.amount),
+        status: payment.status,
+        verifiedAt: payment.verifiedAt,
+        channel: paystackData.channel,
+        paidAt: paystackData.paid_at
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying payment',
+      error: error.message
+    });
+  }
+};
+
+// :::::::GET THE TOTAL PAYMENT
+const getPaymentTotal = async (req, res) => {
+  try {
+    const { bookingId } = req.query;
+    const userId = req.user.id;
+
+    if (!bookingId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking ID is required'
+      });
+    }
+
+    // Find the booking
+    const booking = await Booking.findById(bookingId).populate('therapistId', 'name specialization');
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if user owns this booking
+    if (booking.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    
+    const basePrice = 15000;
+    
+    
+    let finalPrice = basePrice;
+    
+    // dynamic pricing
+    // if (booking.therapistId.specialization === 'Senior Therapist') {
+    //   finalPrice = 20000;
+    // }
+    
+    // Calculate any discounts or additional fees
+    const platformFee = 500;
+    const totalAmount = finalPrice + platformFee;
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment total calculated successfully',
+      data: {
+        bookingId: booking._id,
+        pricing: {
+          basePrice: basePrice,
+          platformFee: platformFee,
+          totalAmount: totalAmount,
+          currency: 'NGN'
+        },
+        booking: {
+          therapist: booking.therapistId.name,
+          specialization: booking.therapistId.specialization,
+          appointmentDate: booking.appointmentDate,
+          duration: booking.duration || '60 minutes'
+        },
+        breakdown: [
+          {
+            item: 'Therapy Session',
+            amount: basePrice
+          },
+          {
+            item: 'Platform Fee', 
+            amount: platformFee
+          }
+        ]
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error calculating payment total',
+      error: error.message
+    });
+  }
+};
+
+// ::::::: Paystack webhook for automatic payment verification
+const handleWebhook = async (req, res) => {
+  try {
+    const hash = crypto
+      .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    if (hash !== req.headers['x-paystack-signature']) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid webhook signature'
+      });
+    }
+
+    const event = req.body;
+
+    // Handle successful payment
+    if (event.event === 'charge.success') {
+      const { reference } = event.data;
+
+      // Find payment record
+      const payment = await Payment.findOne({ paystackReference: reference });
+      
+      if (payment && payment.status === 'pending') {
+        payment.status = 'success';
+        payment.verifiedAt = new Date();
+        payment.paystackData = {
+          ...payment.paystackData,
+          transaction_id: event.data.id,
+          gateway_response: event.data.gateway_response,
+          paid_at: event.data.paid_at,
+          channel: event.data.channel,
+          fees: event.data.fees,
+          customer: event.data.customer
+        };
+
+        await payment.save();
+
+        // Update booking status to paid
+        await Booking.findByIdAndUpdate(payment.bookingId, { 
+          status: 'paid',
+          paidAt: new Date()
+        });
+
+        console.log(`Payment webhook processed: ${reference} - SUCCESS`);
+      }
+    }
+
+    // Handle failed payment
+    if (event.event === 'charge.failed') {
+      const { reference } = event.data;
+
+      const payment = await Payment.findOne({ paystackReference: reference });
+      
+      if (payment && payment.status === 'pending') {
+        payment.status = 'failed';
+        payment.paystackData = {
+          ...payment.paystackData,
+          gateway_response: event.data.gateway_response
+        };
+        
+        await payment.save();
+        console.log(`Payment webhook processed: ${reference} - FAILED`);
+      }
+    }
+
+    res.status(200).json({ success: true });
+
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Webhook processing error',
+      error: error.message
+    });
+  }
+};
+
+// :::::::CHECK PAYMENT STATUS MANUALLY
+const getPaymentStatus = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    const userId = req.user.id;
+
+    // Find payment record
+    const payment = await Payment.findOne({ paystackReference: reference })
+      .populate('bookingId', 'appointmentDate therapistId');
+    
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    // Check if user owns this payment
+    if (payment.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment status retrieved',
+      data: {
+        reference: payment.paystackReference,
+        status: payment.status,
+        amount: PaystackService.koboToNaira(payment.amount),
+        currency: payment.currency,
+        paymentMethod: payment.paymentMethod,
+        verifiedAt: payment.verifiedAt,
+        createdAt: payment.createdAt,
+        booking: payment.bookingId
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error getting payment status',
+      error: error.message
+    });
+  }
+};
+
+//// :::::::CHARGE RETURNING CUSTOMERS FOR FUTURE PAYMENT
+const chargeReturningCustomer = async (req, res) => {
+  try {
+    const { bookingId, authorizationCode } = req.body;
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+
+    if (!bookingId || !authorizationCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking ID and authorization code are required'
+      });
+    }
+
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check ownership
+    if (booking.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Calculate amount
+    const therapySessionPrice = 15000;
+    const amount = PaystackService.nairaToKobo(therapySessionPrice + 500);
+
+    const reference = PaystackService.generateReference(userId);
+
+    // Charge authorization using Paystack
+    const chargeData = {
+      email: userEmail,
+      amount: amount,
+      authorization_code: authorizationCode,
+      reference: reference
+    };
+
+    // Make API call to Paystack charge endpoint
+    const paystack = require('paystack')(process.env.PAYSTACK_SECRET_KEY);
+    const response = await paystack.transaction.charge_authorization(chargeData);
+
+    if (response.data.status !== 'success') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment failed',
+        error: response.data.gateway_response
+      });
+    }
+
+    // Create payment record
+    const payment = new Payment({
+      userId,
+      bookingId,
+      paystackReference: reference,
+      amount,
+      currency: 'NGN',
+      paymentMethod: 'card',
+      status: 'success',
+      verifiedAt: new Date(),
+      paystackData: {
+        transaction_id: response.data.id,
+        gateway_response: response.data.gateway_response,
+        paid_at: response.data.paid_at,
+        channel: response.data.channel,
+        fees: response.data.fees,
+        customer: response.data.customer
+      },
+      metadata: {
+        session_type: 'therapy_session',
+        therapist_id: booking.therapistId,
+        appointment_date: booking.appointmentDate
+      }
+    });
+
+    await payment.save();
+
+    // Update booking status
+    await Booking.findByIdAndUpdate(bookingId, { 
+      status: 'paid',
+      paidAt: new Date()
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment successful',
+      data: {
+        paymentId: payment._id,
+        reference: payment.paystackReference,
+        amount: PaystackService.koboToNaira(payment.amount),
+        status: payment.status,
+        paidAt: payment.verifiedAt
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error processing payment',
+      error: error.message
+    });
+  }
+};
+
+module.exports = {
+  getPaymentMethods,
+  initiatePayment,
+  verifyPayment,
+  getPaymentTotal,
+  handleWebhook,
+  getPaymentStatus,
+  chargeReturningCustomer
+};

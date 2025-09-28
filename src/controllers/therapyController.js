@@ -1,3 +1,4 @@
+
 const Therapist = require('../models/Therapist');
 const Appointment = require('../models/Appointment');
 const mongoose = require('mongoose');
@@ -152,3 +153,4 @@ module.exports = {
   getUserAppointments,
   bookAppointment,
 }
+

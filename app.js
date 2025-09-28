@@ -1,7 +1,10 @@
 const express = require('express');
 const passport = require('passport');
 require("dotenv").config()
-const app = express()
+const agenda = require("./src/config/agenda");
+require("./src/jobs/sendReminders");
+const app = express();
+
 
 
 // imported files
@@ -14,6 +17,8 @@ const journalRoutes = require('./src/routes/journalRoutes');
 const moodRoutes = require('./src/routes/moodRoutes');
 const communityRoutes = require('./src/routes/communityRoutes');
 const therapyChatRoutes = require('./src/routes/therapyChatRoutes')
+const preferencesRoutes = require("./src/routes/preferencesRoutes");
+const paymentRoutes = require('./src/routes/paymentRoutes')
 
 
 // middlewares
@@ -25,6 +30,17 @@ app.use(passport.initialize());
 //connecting to database
 connectToDataBase()
 
+
+//jobs
+const reminderJob = async() => {
+  await agenda.start();
+  console.log("agenda started");
+  await agenda.every("0 8 * * *", "send morning reminders");
+  await agenda.every("0 18 * * *", "send evening reminders");
+};
+reminderJob()
+
+
 // Routes
 app.use('/api', googleAuthRoutes);
 app.use('/api', authRoutes);
@@ -33,6 +49,8 @@ app.use('/api', moodRoutes);
 app.use('/api', communityRoutes);
 app.use('/api', therapyRoutes);
 app.use('/api', therapyChatRoutes)
+app.use("/api", preferencesRoutes);
+app.use('/api', paymentRoutes)
 
 
 // ..............

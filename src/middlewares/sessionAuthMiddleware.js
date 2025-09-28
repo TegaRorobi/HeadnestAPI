@@ -60,3 +60,4 @@ const sessionAuthMiddleware = async (req, res, next) => {
 };
 
 module.exports = sessionAuthMiddleware;
+

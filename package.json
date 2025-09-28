@@ -8,6 +8,7 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "agenda": "^5.0.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.58.1",
@@ -29,6 +30,7 @@
     "passport-apple": "^2.0.2",
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
+    "paystack": "^2.0.1",
     "socket.io": "^4.7.2",
     "uuid": "^9.0.0",
     "winston": "^3.17.0"
