@@ -9,6 +9,7 @@ router.get('/therapists', therapyController.getAllTherapists);
 
 router.post('/appointments/', authMiddleware, therapyController.bookAppointment);
 router.get('/appointments/user', authMiddleware, therapyController.getUserAppointments);
+router.post('/appointments/email-reminder', authMiddleware, therapyController.sendUpcomingAppointmentReminders);
 router.get('/appointments/:appointmentID', therapyController.getSingleAppointment);
 router.get('/appointments', therapyController.getAllAppointments);
 
