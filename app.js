@@ -1,7 +1,7 @@
 const express = require('express');
 const passport = require('passport');
 require("dotenv").config()
-const agenda = require("./src/config/agenda");
+// const agenda = require("./src/config/agenda");
 require("./src/jobs/sendReminders");
 const app = express();
 
@@ -18,7 +18,8 @@ const moodRoutes = require('./src/routes/moodRoutes');
 const communityRoutes = require('./src/routes/communityRoutes');
 const therapyChatRoutes = require('./src/routes/therapyChatRoutes')
 const preferencesRoutes = require("./src/routes/preferencesRoutes");
-const paymentRoutes = require('./src/routes/paymentRoutes')
+const paymentRoutes = require('./src/routes/paymentRoutes');
+const agenda = require('./src/config/agenda');
 
 
 // middlewares
