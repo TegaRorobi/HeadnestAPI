@@ -6,13 +6,11 @@ const appointmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Therapist',
     required: true,
-    unique: true
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    unique: true
   },
   datetime: {
     type: Date,
