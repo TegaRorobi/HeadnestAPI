@@ -11,7 +11,7 @@ const router = express.Router();
 // Registration route (with validation middleware)
 router.post('/user/auth/register', validateRegistration, authController.register);
 
-router.post('/user/auth/login', validateLogin, authMiddleware, authController.login);
+router.post('/user/auth/login', validateLogin, authController.login);
 
 router.delete('user/auth/delete', authMiddleware, deleteAccount);
 
