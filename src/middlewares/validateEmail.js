@@ -23,7 +23,7 @@ const sendVerificationLink = async (user) => {
   user.verificationTokenExpires = Date.now() + 15 * 60 * 1000;
   await user.save();
 
-  const link = `${process.env.APP_URL}/verify-email?email=${encodeURIComponent(
+  const link = `${process.env.APP_URL}/user/auth/verify-email?email=${encodeURIComponent(
     user.email
   )}&token=${token}`;
 

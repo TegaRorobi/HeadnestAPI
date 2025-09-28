@@ -11,12 +11,13 @@ const app = express();
 const logger = require('./logger')
 const { connectToDataBase } = require('./src/config/db');
 const googleAuthRoutes = require('./src/auth/googleAuth');
-const userRoutes = require('./src/routes/userRoutes');
-const authRoutes = require('./src/routes/authRoutes');
-
-const journalRoutes = require('./src/routes/journalRoutes');
-const moodRoutes = require('./src/routes/moodRoutes');
-const communityRoutes = require('./src/routes/communityRoutes');
+const authRoutes = require("./src/auth/userAuthRoutes");
+const therapyRoutes = require("./src/routes/therapyRoutes");
+const journalRoutes = require("./src/routes/journalRoutes");
+const moodRoutes = require("./src/routes/moodRoutes");
+const communityRoutes = require("./src/routes/communityRoutes");
+const therapyChatRoutes = require("./src/routes/therapyChatRoutes");
+const preferencesRoutes = require("./src/routes/preferencesRoutes");
 
 
 // middlewares
@@ -34,24 +35,20 @@ const reminderJob = async() => {
   await agenda.start();
   console.log("agenda started");
   await agenda.every("0 8 * * *", "send morning reminders");
-  await agenda.every("00 18 * * *", "send evening reminders");
+  await agenda.every("0 18 * * *", "send evening reminders");
 };
 reminderJob()
 
+
 // Routes
-
-//app.use('/auth', googleAuthRoutes); # should be mounted at /auth/oauth/google as defined in ENDPOINTS_PER_USER_STORY.md
-//app.use('/auth/oauth/google', googleAuthRoutes);
-//app.use('/auth', authRoutes);
-//app.use('/users', userRoutes);
-//app.use('/api/journals', journalRoutes);
-
-app.use('/auth', googleAuthRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api', userRoutes);
+app.use('/api', googleAuthRoutes);
+app.use('/api', authRoutes);
 app.use('/api/journals', journalRoutes);
 app.use('/api', moodRoutes);
 app.use('/api', communityRoutes);
+app.use('/api', therapyRoutes);
+app.use('/api', therapyChatRoutes)
+app.use("/api", preferencesRoutes);
 
 
 // ..............
