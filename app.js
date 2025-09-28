@@ -48,7 +48,7 @@ app.use('/api/journals', journalRoutes);
 app.use('/api', moodRoutes);
 app.use('/api', communityRoutes);
 app.use('/api', therapyRoutes);
-app.use('/api', therapyChatRoutes)
+app.use('/api', therapyChatRoutes);
 app.use("/api", preferencesRoutes);
 app.use('/api', paymentRoutes)
 
