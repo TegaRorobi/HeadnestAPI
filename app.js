@@ -11,12 +11,12 @@ const app = express();
 const logger = require('./logger')
 const { connectToDataBase } = require('./src/config/db');
 const googleAuthRoutes = require('./src/auth/googleAuth');
-const authRoutes = require("./src/auth/userAuthRoutes");
-const therapyRoutes = require("./src/routes/therapyRoutes");
-const journalRoutes = require("./src/routes/journalRoutes");
-const moodRoutes = require("./src/routes/moodRoutes");
-const communityRoutes = require("./src/routes/communityRoutes");
-const therapyChatRoutes = require("./src/routes/therapyChatRoutes");
+const authRoutes = require('./src/auth/userAuthRoutes');
+const therapyRoutes = require('./src/routes/therapyRoutes');
+const journalRoutes = require('./src/routes/journalRoutes');
+const moodRoutes = require('./src/routes/moodRoutes');
+const communityRoutes = require('./src/routes/communityRoutes');
+const therapyChatRoutes = require('./src/routes/therapyChatRoutes')
 const preferencesRoutes = require("./src/routes/preferencesRoutes");
 
 
@@ -49,6 +49,7 @@ app.use('/api', communityRoutes);
 app.use('/api', therapyRoutes);
 app.use('/api', therapyChatRoutes)
 app.use("/api", preferencesRoutes);
+
 
 
 // ..............

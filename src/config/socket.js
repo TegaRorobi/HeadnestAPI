@@ -1,33 +1,31 @@
-const { Server } = require("socket.io");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const Booking = require("../models/Booking");
-const TherapyChat = require("../models/TherapyChat");
-require("dotenv").config();
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const Booking = require('../models/Booking');
+const TherapyChat = require('../models/TherapyChat');
+require('dotenv').config();
 
 // Socket authentication middleware
 const authenticateSocket = async (socket, next) => {
   try {
-    const token =
-      socket.handshake.auth.token ||
-      socket.handshake.headers.authorization?.replace("Bearer ", "");
-
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+    
     if (!token) {
-      return next(new Error("Authentication token required"));
+      return next(new Error('Authentication token required'));
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
-
+    
     if (!user) {
-      return next(new Error("User not found"));
+      return next(new Error('User not found'));
     }
 
     socket.userId = user._id.toString();
     socket.user = user;
     next();
   } catch (error) {
-    next(new Error("Authentication failed"));
+    next(new Error('Authentication failed'));
   }
 };
 
@@ -37,36 +35,33 @@ const initializeSocket = (server) => {
     cors: {
       origin: process.env.CLIENT_URL || "http://localhost:3000",
       methods: ["GET", "POST"],
-      credentials: true,
-    },
+      credentials: true
+    }
   });
 
   // Apply authentication middleware
   io.use(authenticateSocket);
 
-  io.on("connection", (socket) => {
+  io.on('connection', (socket) => {
     console.log(`User ${socket.user.name} connected: ${socket.id}`);
 
     // Join therapy session room
-    socket.on("join_therapy_session", async (data) => {
+    socket.on('join_therapy_session', async (data) => {
       try {
         const { sessionId } = data;
-
+        
         // Validate session access
         const booking = await Booking.findById(sessionId);
         if (!booking) {
-          return socket.emit("error", { message: "Session not found" });
+          return socket.emit('error', { message: 'Session not found' });
         }
 
         //......Check if the user has access to this session
-        const hasAccess =
-          booking.userId.toString() === socket.userId ||
-          booking.therapistId.toString() === socket.userId;
+        const hasAccess = booking.userId.toString() === socket.userId || 
+                         booking.therapistId.toString() === socket.userId;
 
         if (!hasAccess) {
-          return socket.emit("error", {
-            message: "Access denied to this session",
-          });
+          return socket.emit('error', { message: 'Access denied to this session' });
         }
 
         //........Join the room
@@ -75,26 +70,23 @@ const initializeSocket = (server) => {
         socket.currentSession = sessionId;
 
         //......Determine user type
-        const userType =
-          booking.therapistId.toString() === socket.userId
-            ? "therapist"
-            : "user";
+        const userType = booking.therapistId.toString() === socket.userId ? 'therapist' : 'user';
         socket.userType = userType;
 
         // Notify chatroom that user joined
-        socket.to(roomName).emit("user_joined", {
+        socket.to(roomName).emit('user_joined', {
           userId: socket.userId,
           userName: socket.user.name,
           userType: userType,
-          joinedAt: new Date(),
+          joinedAt: new Date()
         });
 
         // Send confirmation to user
-        socket.emit("session_joined", {
+        socket.emit('session_joined', {
           sessionId,
           roomName,
           userType,
-          message: "Successfully joined therapy session",
+          message: 'Successfully joined therapy session'
         });
 
         // Create join notification in database
@@ -103,33 +95,29 @@ const initializeSocket = (server) => {
           senderId: socket.userId,
           senderType: userType,
           message: `${socket.user.name} joined the session`,
-          messageType: "notification",
+          messageType: 'notification'
         });
         await joinNotification.save();
 
         console.log(`${socket.user.name} joined therapy session: ${sessionId}`);
+
       } catch (error) {
-        socket.emit("error", {
-          message: "Error joining session",
-          error: error.message,
-        });
+        socket.emit('error', { message: 'Error joining session', error: error.message });
       }
     });
 
     // Send message in therapy chat
-    socket.on("send_message", async (data) => {
+    socket.on('send_message', async (data) => {
       try {
         const { message } = data;
         const sessionId = socket.currentSession;
 
         if (!sessionId) {
-          return socket.emit("error", {
-            message: "Not in any therapy session",
-          });
+          return socket.emit('error', { message: 'Not in any therapy session' });
         }
 
         if (!message || !message.trim()) {
-          return socket.emit("error", { message: "Message cannot be empty" });
+          return socket.emit('error', { message: 'Message cannot be empty' });
         }
 
         // Save message to database
@@ -138,15 +126,15 @@ const initializeSocket = (server) => {
           senderId: socket.userId,
           senderType: socket.userType,
           message: message.trim(),
-          messageType: "text",
+          messageType: 'text'
         });
 
         await newMessage.save();
-        await newMessage.populate("senderId", "name email");
+        await newMessage.populate('senderId', 'name email');
 
         // Send to all users in the room
         const roomName = `therapy_${sessionId}`;
-        io.to(roomName).emit("new_message", {
+        io.to(roomName).emit('new_message', {
           _id: newMessage._id,
           sessionId: newMessage.sessionId,
           senderId: newMessage.senderId,
@@ -154,63 +142,59 @@ const initializeSocket = (server) => {
           message: newMessage.message,
           messageType: newMessage.messageType,
           createdAt: newMessage.createdAt,
-          isFromSelf: false, // Will be overridden by client
+          isFromSelf: false // Will be overridden by client
         });
 
-        console.log(
-          `Message sent in session ${sessionId}: ${message.substring(0, 50)}...`
-        );
+        console.log(`Message sent in session ${sessionId}: ${message.substring(0, 50)}...`);
+
       } catch (error) {
-        socket.emit("error", {
-          message: "Error sending message",
-          error: error.message,
-        });
+        socket.emit('error', { message: 'Error sending message', error: error.message });
       }
     });
 
     // Typing indicators
-    socket.on("typing_start", () => {
+    socket.on('typing_start', () => {
       if (socket.currentSession) {
         const roomName = `therapy_${socket.currentSession}`;
-        socket.to(roomName).emit("user_typing", {
+        socket.to(roomName).emit('user_typing', {
           userId: socket.userId,
           userName: socket.user.name,
-          userType: socket.userType,
+          userType: socket.userType
         });
       }
     });
 
-    socket.on("typing_stop", () => {
+    socket.on('typing_stop', () => {
       if (socket.currentSession) {
         const roomName = `therapy_${socket.currentSession}`;
-        socket.to(roomName).emit("user_stopped_typing", {
-          userId: socket.userId,
+        socket.to(roomName).emit('user_stopped_typing', {
+          userId: socket.userId
         });
       }
     });
 
     // Mark message as read
-    socket.on("mark_message_read", async (data) => {
+    socket.on('mark_message_read', async (data) => {
       try {
         const { messageId } = data;
-
+        
         await TherapyChat.findByIdAndUpdate(messageId, { isRead: true });
-
+        
         if (socket.currentSession) {
           const roomName = `therapy_${socket.currentSession}`;
-          socket.to(roomName).emit("message_read", {
+          socket.to(roomName).emit('message_read', {
             messageId,
             readBy: socket.userId,
-            readAt: new Date(),
+            readAt: new Date()
           });
         }
       } catch (error) {
-        socket.emit("error", { message: "Error marking message as read" });
+        socket.emit('error', { message: 'Error marking message as read' });
       }
     });
 
     // Leave therapy session
-    socket.on("leave_therapy_session", async () => {
+    socket.on('leave_therapy_session', async () => {
       try {
         if (socket.currentSession) {
           const sessionId = socket.currentSession;
@@ -222,16 +206,16 @@ const initializeSocket = (server) => {
             senderId: socket.userId,
             senderType: socket.userType,
             message: `${socket.user.name} left the session`,
-            messageType: "notification",
+            messageType: 'notification'
           });
           await leaveNotification.save();
 
           // Notify room that user left
-          socket.to(roomName).emit("user_left", {
+          socket.to(roomName).emit('user_left', {
             userId: socket.userId,
             userName: socket.user.name,
             userType: socket.userType,
-            leftAt: new Date(),
+            leftAt: new Date()
           });
 
           // Leave the room
@@ -239,30 +223,29 @@ const initializeSocket = (server) => {
           socket.currentSession = null;
           socket.userType = null;
 
-          socket.emit("session_left", {
-            message: "Left therapy session successfully",
-          });
+          socket.emit('session_left', { message: 'Left therapy session successfully' });
         }
       } catch (error) {
-        socket.emit("error", { message: "Error leaving session" });
+        socket.emit('error', { message: 'Error leaving session' });
       }
     });
 
     // Handle disconnection
-    socket.on("disconnect", async () => {
+    socket.on('disconnect', async () => {
       console.log(`User ${socket.user.name} disconnected: ${socket.id}`);
-
+      
       // Auto-leave session on disconnect
       if (socket.currentSession) {
         const roomName = `therapy_${socket.currentSession}`;
-        socket.to(roomName).emit("user_disconnected", {
+        socket.to(roomName).emit('user_disconnected', {
           userId: socket.userId,
           userName: socket.user.name,
           userType: socket.userType,
-          disconnectedAt: new Date(),
+          disconnectedAt: new Date()
         });
       }
     });
+
   });
 
   return io;

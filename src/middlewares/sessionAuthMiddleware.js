@@ -1,4 +1,4 @@
-const Booking = require("../models/Booking");
+const Booking = require('../models/Booking');
 
 const sessionAuthMiddleware = async (req, res, next) => {
   try {
@@ -13,52 +13,51 @@ const sessionAuthMiddleware = async (req, res, next) => {
     } else {
       return res.status(400).json({
         success: false,
-        message: "Session ID is required",
+        message: 'Session ID is required'
       });
     }
 
     // Finding the booking/session
     const booking = await Booking.findById(sessionId);
-
+    
     if (!booking) {
       return res.status(404).json({
         success: false,
-        message: "Session not found",
+        message: 'Session not found'
       });
     }
 
     // Check if user has access to this session
-    const hasAccess =
-      booking.userId.toString() === userId.toString() ||
-      booking.therapistId.toString() === userId.toString();
+    const hasAccess = booking.userId.toString() === userId.toString() || 
+                     booking.therapistId.toString() === userId.toString();
 
     if (!hasAccess) {
       return res.status(403).json({
         success: false,
-        message: "You do not have access to this chat session",
+        message: 'You do not have access to this chat session'
       });
     }
 
-    const userType =
-      booking.therapistId.toString() === userId.toString()
-        ? "therapist"
-        : "user";
-
+    const userType = booking.therapistId.toString() === userId.toString() ? 'therapist' : 'user';
+    
+  
     req.session = {
       booking,
       sessionId,
       userType,
-      hasAccess: true,
+      hasAccess: true
     };
 
-    next();
+    next(); 
+
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error validating session access",
-      error: error.message,
+      message: 'Error validating session access',
+      error: error.message
     });
   }
 };
 
 module.exports = sessionAuthMiddleware;
+

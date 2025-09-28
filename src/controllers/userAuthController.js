@@ -1,12 +1,12 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const User = require('../models/User.js');
+const generateToken = require('../utils/jwt.js');
+const logger = require('../../logger.js');
+require('dotenv').config();
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-const User = require("../models/User");
-const generateToken = require("../utils/jwt.js");
 const sendVerificationLink = require("../middlewares/validateEmail");
-const logger = require("../../logger.js");
-require("dotenv").config();
 
 // =========================
 // REGISTER ACCOUNT
@@ -18,7 +18,7 @@ exports.register = async (req, res) => {
     // Check if user already exists
     let existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ msg: "Email is already in use" });
+      return res.status(400).json({ msg: 'Email is already in use' });
     }
 
     // Hash password only if provided (non-Google signups)
@@ -56,7 +56,7 @@ exports.register = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: 'Server error' });
   }
 };
 
@@ -160,6 +160,7 @@ exports.resendLink = async (req, res) => {
   }
 };
 
+
 // =========================
 // DELETE ACCOUNT
 // =========================
@@ -183,7 +184,7 @@ exports.tokenRefresh = async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) {
-      return res.status(401).json({ message: "Refresh token is required." });
+      return res.status(401).json({ message: 'Refresh token is required.' });
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
@@ -191,7 +192,7 @@ exports.tokenRefresh = async (req, res) => {
     const newAccessToken = jwt.sign(
       { id: decoded.id, email: decoded.email },
       process.env.JWT_SECRET,
-      { expiresIn: "12h" }
+      { expiresIn: '12h' }
     );
 
     return res.status(200).json({ accessToken: newAccessToken });

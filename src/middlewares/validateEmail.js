@@ -31,7 +31,7 @@ const sendVerificationLink = async (user) => {
     from: `"Headnest" <${process.env.EMAIL_USER}>`,
     to: user.email,
     subject: "Email verification",
-    text: `Click this link to verify your email ${link} \n\nLink expires in 1 minutes.`,
+    text: `Click this link to verify your email ${link} \n\nLink expires in 15 minutes.`,
     html: `<p>Click <a href="${link}">here</a> to verify your email. Link expires in 15 minutes.</p>`,
   });
   console.log("Verification Link sent");
