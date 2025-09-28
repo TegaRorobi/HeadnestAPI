@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "nodemon server.js",
+    "build": "npm install"
   },
   "dependencies": {
     "agenda": "^5.0.0",

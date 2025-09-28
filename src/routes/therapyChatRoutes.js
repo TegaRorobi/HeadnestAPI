@@ -13,4 +13,6 @@ router.get('/appointments/:id/chat', authMiddleware, sessionAuthMiddleware, acce
 router.delete('/therapy/chat/history', clearExpiredMessages);
 // router.post('/therapy/chat/notify', authMiddleware, sessionAuthMiddleware, sendNotification);
 
+
 module.exports = router;
+
