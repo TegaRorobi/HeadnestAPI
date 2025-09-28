@@ -2,6 +2,19 @@
 const Therapist = require('../models/Therapist');
 const Appointment = require('../models/Appointment');
 const mongoose = require('mongoose');
+const nodemailer = require("nodemailer");
+const { formatAppointmentsForEmail } = require('../utils/formatAppointmentsForEmail.js');
+
+require("dotenv").config();
+
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 
 // GET /therapists
@@ -144,6 +157,43 @@ const bookAppointment = async (req, res) => {
   }
 };
 
+// POST /appointments/email-reminder
+const sendUpcomingAppointmentReminders = async (req, res) => {
+  try {
+
+    const userID = req.user.id;
+    const userEmail = req.user.email;
+
+    const upcomingAppointments = await Appointment.find({
+      user: userID,
+      datetime: { $gte: new Date() } 
+    })
+      .populate('therapist', 'name specialization')
+      .sort({ datetime: 1 }); // Sort by date ascending
+
+    if (upcomingAppointments.length === 0) {
+      console.log(`No upcoming appointments found for user ${userID}. Skipping email.`);
+      return;
+    }
+
+    const emailContent = formatAppointmentsForEmail(upcomingAppointments);
+
+    await transporter.sendMail({
+      from: `"Headnest Appointments" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: `Reminder: You have ${upcomingAppointments.length} Upcoming Appointment(s)`,
+      text: emailContent.text,
+      html: emailContent.html,
+    });
+    
+    console.log(`Reminder email sent successfully to ${userEmail} for ${upcomingAppointments.length} appointments.`);
+    return;
+
+  } catch (err) {
+    console.error(`ERROR processing reminders for user ${userID}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+};
 
 module.exports = {
   getAllTherapists,
@@ -152,5 +202,6 @@ module.exports = {
   getSingleAppointment,
   getUserAppointments,
   bookAppointment,
+  sendUpcomingAppointmentReminders,
 }
 
