@@ -25,7 +25,7 @@ async function sendTestEmail() {
       console.log("✅ Email sent successfully:", info.messageId);
     } catch (error) {
         logger.error(error)
-        console.error("❌ Failed to send email:", err.message);
+        console.error("❌ Failed to send email:", error.message);
     }
 }
 
