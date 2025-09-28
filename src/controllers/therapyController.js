@@ -1,3 +1,4 @@
+
 const Therapist = require('../models/Therapist');
 const Appointment = require('../models/Appointment');
 const mongoose = require('mongoose');
@@ -106,11 +107,50 @@ const getUserAppointments = async (req, res) => {
   }
 }
 
+// POST /appointments/
+const bookAppointment = async (req, res) => {
+  try {
+    const userID = req.user.id;
+    const { therapistID, datetime, duration, note } = req.body;
+
+    if (!therapistID || !datetime || !duration) {
+      return res.status(400).json({ message: 'Missing required fields: therapistID, datetime, and duration.' });
+    }
+    
+    if (!mongoose.isValidObjectId(userID)) {
+        return res.status(400).json({ message: 'Invalid ID format for user.'});
+    }
+
+    if (!mongoose.isValidObjectId(therapistID)) {
+        return res.status(400).json({ message: 'Invalid ID format for therapist'});
+    }
+
+    const newAppointment = await Appointment.create({
+      user: userID,
+      therapist: therapistID,
+      datetime: datetime,
+      duration: duration,
+      note: note || '',
+    });
+
+    res.status(201).json({ 
+      message: 'Appointment successfully booked.',
+      appointment: newAppointment 
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: `Error booking appointment: ${err.message}` });
+  }
+};
+
+
 module.exports = {
   getAllTherapists,
   getSingleTherapist,
   getAllAppointments,
   getSingleAppointment,
-  getUserAppointments
+  getUserAppointments,
+  bookAppointment,
 }
 
