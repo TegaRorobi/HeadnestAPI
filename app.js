@@ -18,6 +18,7 @@ const moodRoutes = require('./src/routes/moodRoutes');
 const communityRoutes = require('./src/routes/communityRoutes');
 const therapyChatRoutes = require('./src/routes/therapyChatRoutes')
 const preferencesRoutes = require("./src/routes/preferencesRoutes");
+const paymentRoutes = require('./src/routes/paymentRoutes')
 
 
 // middlewares
@@ -49,7 +50,7 @@ app.use('/api', communityRoutes);
 app.use('/api', therapyRoutes);
 app.use('/api', therapyChatRoutes)
 app.use("/api", preferencesRoutes);
-
+app.use('/api', paymentRoutes)
 
 
 // ..............
