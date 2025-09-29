@@ -6,16 +6,15 @@ const paymentSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
- 
   appointmentId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Appointment', 
+    ref: 'Appointment',
     required: true
   },
   paystackReference: {
     type: String,
     required: true,
-    unique: true 
+    unique: true
   },
   amount: {
     type: Number,
@@ -34,6 +33,10 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'success', 'failed', 'abandoned'],
     default: 'pending'
+  },
+  authorizationCode: { 
+    type: String,
+    trim: true
   },
   paystackData: {
     authorization_url: String,
@@ -69,7 +72,7 @@ const paymentSchema = new mongoose.Schema({
 
 paymentSchema.index({ paystackReference: 1 });
 paymentSchema.index({ userId: 1, status: 1 });
-paymentSchema.index({ appointmentId: 1 }); 
+paymentSchema.index({ appointmentId: 1 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 
