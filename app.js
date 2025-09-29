@@ -11,7 +11,7 @@ const app = express();
 const logger = require('./logger')
 const { connectToDataBase } = require('./src/config/db');
 const googleAuthRoutes = require('./src/auth/googleAuth');
-const authRoutes = require('./src/auth/userAuthRoutes');
+const userAuthRoutes = require('./src/auth/userAuthRoutes');
 const therapyRoutes = require('./src/routes/therapyRoutes');
 const journalRoutes = require('./src/routes/journalRoutes');
 const moodRoutes = require('./src/routes/moodRoutes');
@@ -44,7 +44,7 @@ reminderJob()
 
 // Routes
 app.use('/api', googleAuthRoutes);
-app.use('/api', authRoutes);
+app.use('/api', userAuthRoutes);
 app.use('/api/journals', journalRoutes);
 app.use('/api', moodRoutes);
 app.use('/api', communityRoutes);
