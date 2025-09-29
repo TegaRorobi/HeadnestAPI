@@ -94,7 +94,7 @@ const initiatePayment = async (req, res) => {
       email: userEmail,
       amount: amount,
       reference: reference,
-      callback_url: `${process.env.CLIENT_URL || 'http://localhost:3000'}/payment/callback`,
+      callback_url: `${process.env.CLIENT_URL || 'https://headnest-api.onrender.com'}/payment/callback`,
       metadata: {
         appointmentId: appointmentId.toString(),
         userId: userId.toString(),
