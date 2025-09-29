@@ -12,7 +12,6 @@ function connectToDataBase() {
      mongoose.connection.on('error' , () => {
         console.log('Failed Connecting to Database ')
     })
-    
 }
 
 module.exports = {connectToDataBase}

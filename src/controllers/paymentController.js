@@ -284,8 +284,10 @@ const getPaymentTotal = async (req, res) => {
     }
 
     // Find the appointment
-    const appointment = await Appointment.findById(appointmentId).populate('therapist', 'name specialization');
-    
+    const appointment = await Appointment.findById(appointmentId)
+      .populate('therapist', 'name specialization')
+      .lean(); // lean() makes it a plain JS object
+
     if (!appointment) {
       return res.status(404).json({
         success: false,
@@ -302,16 +304,8 @@ const getPaymentTotal = async (req, res) => {
     }
 
     const basePrice = 15000;
-    let finalPrice = basePrice;
-    
-    // dynamic pricing (optional)
-    // if (appointment.therapist.specialization === 'Senior Therapist') {
-    //   finalPrice = 20000;
-    // }
-    
-    // Calculate any discounts or additional fees
     const platformFee = 500;
-    const totalAmount = finalPrice + platformFee;
+    const totalAmount = basePrice + platformFee;
 
     res.status(200).json({
       success: true,
@@ -319,38 +313,119 @@ const getPaymentTotal = async (req, res) => {
       data: {
         appointmentId: appointment._id,
         pricing: {
-          basePrice: basePrice,
-          platformFee: platformFee,
-          totalAmount: totalAmount,
+          basePrice,
+          platformFee,
+          totalAmount,
           currency: 'NGN'
         },
         appointment: {
           therapist: appointment.therapist.name,
           specialization: appointment.therapist.specialization,
-          appointmentDate: appointment.datetime,
-          duration: appointment.duration || '60 minutes'
+          datetime: appointment.datetime,
+          duration: appointment.duration || '60 minutes',
+          status: appointment.status || 'pending',g
+          paidAt: appointment.paidAt || null    
         },
         breakdown: [
-          {
-            item: 'Therapy Session',
-            amount: basePrice
-          },
-          {
-            item: 'Platform Fee', 
-            amount: platformFee
-          }
+          { item: 'Therapy Session', amount: basePrice },
+          { item: 'Platform Fee', amount: platformFee }
         ]
       }
     });
 
   } catch (error) {
+    // Detect if timeout / connection issue
+    const isTimeout = error.message.includes('buffering timed out');
     res.status(500).json({
       success: false,
-      message: 'Error calculating payment total',
+      message: isTimeout
+        ? 'Database connection timed out. Check MongoDB connection.'
+        : 'Error calculating payment total',
       error: error.message
     });
   }
 };
+
+// const getPaymentTotal = async (req, res) => {
+//   try {
+//     const { appointmentId } = req.query;
+//     const userId = req.user.id;
+
+//     if (!appointmentId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Appointment ID is required'
+//       });
+//     }
+
+//     // Find the appointment
+//     const appointment = await Appointment.findById(appointmentId).populate('therapist', 'name specialization');
+    
+//     if (!appointment) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Appointment not found'
+//       });
+//     }
+
+//     // Check if user owns this appointment
+//     if (appointment.user.toString() !== userId.toString()) {
+//       return res.status(403).json({
+//         success: false,
+//         message: 'Access denied'
+//       });
+//     }
+
+//     const basePrice = 15000;
+//     let finalPrice = basePrice;
+    
+//     // dynamic pricing (optional)
+//     // if (appointment.therapist.specialization === 'Senior Therapist') {
+//     //   finalPrice = 20000;
+//     // }
+    
+//     // Calculate any discounts or additional fees
+//     const platformFee = 500;
+//     const totalAmount = finalPrice + platformFee;
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Payment total calculated successfully',
+//       data: {
+//         appointmentId: appointment._id,
+//         pricing: {
+//           basePrice: basePrice,
+//           platformFee: platformFee,
+//           totalAmount: totalAmount,
+//           currency: 'NGN'
+//         },
+//         appointment: {
+//           therapist: appointment.therapist.name,
+//           specialization: appointment.therapist.specialization,
+//           appointmentDate: appointment.datetime,
+//           duration: appointment.duration || '60 minutes'
+//         },
+//         breakdown: [
+//           {
+//             item: 'Therapy Session',
+//             amount: basePrice
+//           },
+//           {
+//             item: 'Platform Fee', 
+//             amount: platformFee
+//           }
+//         ]
+//       }
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error calculating payment total',
+//       error: error.message
+//     });
+//   }
+// };
 
 // ::::::: Paystack webhook for automatic payment verification
 const handleWebhook = async (req, res) => {
