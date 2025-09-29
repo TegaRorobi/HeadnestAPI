@@ -2,6 +2,7 @@ const Payment = require('../models/Payment');
 const Appointment = require('../models/Appointment');
 const PaystackService = require('../config/paystack');
 const crypto = require('crypto');
+const axios = require("axios");
 
 // :::::::GET PAYMENT METHODS
 // List all available payment options
@@ -673,24 +674,23 @@ const getPaymentStatus = async (req, res) => {
 // :::::::CHARGE RETURNING CUSTOMERS FOR FUTURE PAYMENT
 const chargeReturningCustomer = async (req, res) => {
   try {
-    const { appointmentId, authorizationCode: providedAuthCode } = req.body;
+    const { appointmentId, authorizationCode } = req.body;
     const userId = req.user.id;
     const userEmail = req.user.email;
 
-    if (!appointmentId) {
+    if (!appointmentId || !authorizationCode) {
       return res.status(400).json({
         success: false,
-        message: 'Appointment ID is required'
+        message: "Appointment ID and authorization code are required",
       });
     }
 
     // Find the appointment
     const appointment = await Appointment.findById(appointmentId);
-
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Appointment not found'
+        message: "Appointment not found",
       });
     }
 
@@ -698,121 +698,108 @@ const chargeReturningCustomer = async (req, res) => {
     if (appointment.user.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
+        message: "Access denied",
       });
     }
 
-    // Determine authorization code to use:
-    let authorizationCode = providedAuthCode || null;
-    if (!authorizationCode) {
-      const prev = await Payment.findOne({
-        userId,
-        authorizationCode: { $exists: true, $ne: null },
-        status: 'success'
-      }).sort({ createdAt: -1 });
-      if (prev) authorizationCode = prev.authorizationCode;
-    }
-
-    if (!authorizationCode) {
-      return res.status(400).json({
-        success: false,
-        message: 'No authorization code provided or found. Make a successful card payment first to obtain an authorization code.'
-      });
-    }
-
-    // Calculate amount (kobo)
+    // Calculate amount
     const therapySessionPrice = 15000;
     const amount = PaystackService.nairaToKobo(therapySessionPrice + 500);
 
-    // Generate reference
     const reference = PaystackService.generateReference(userId);
 
-    // Charge authorization using Paystack
-    const paystack = require('paystack')(process.env.PAYSTACK_SECRET_KEY);
+    // Call Paystack charge_authorization API
     const chargeData = {
       email: userEmail,
       amount: amount,
       authorization_code: authorizationCode,
-      reference: reference
+      reference: reference,
     };
 
-    const response = await paystack.transaction.charge_authorization(chargeData);
+    const response = await axios.post(
+      "https://api.paystack.co/transaction/charge_authorization",
+      chargeData,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    // Paystack returns structure 
-    if (!response || !response.data) {
+    if (!response.data || !response.data.data) {
       return res.status(500).json({
         success: false,
-        message: 'Unexpected response from Paystack',
-        error: response
+        message: "Unexpected response from Paystack",
+        error: response.data,
       });
     }
 
-    // If charge not successful, return error with gateway response
-    if (response.data.status !== 'success') {
+    const paystackRes = response.data.data;
+
+    if (paystackRes.status !== "success") {
       return res.status(400).json({
         success: false,
-        message: 'Payment failed',
-        error: response.data.gateway_response || response.data
+        message: "Payment failed",
+        error: paystackRes.gateway_response || paystackRes,
       });
     }
 
-    // Create payment record and save authorizationCode 
+    // Create payment record
     const payment = new Payment({
       userId,
       appointmentId,
       paystackReference: reference,
       amount,
-      currency: 'NGN',
-      paymentMethod: 'card',
-      status: 'success',
+      currency: "NGN",
+      paymentMethod: "card",
+      status: "success",
       verifiedAt: new Date(),
-      authorizationCode: authorizationCode,
       paystackData: {
-        transaction_id: response.data.id,
-        gateway_response: response.data.gateway_response,
-        paid_at: response.data.paid_at,
-        channel: response.data.channel,
-        fees: response.data.fees,
-        customer: response.data.customer,
-        authorization: response.data.authorization || {}
+        transaction_id: paystackRes.id,
+        gateway_response: paystackRes.gateway_response,
+        paid_at: paystackRes.paid_at,
+        channel: paystackRes.channel,
+        fees: paystackRes.fees,
+        customer: {
+          email: paystackRes.customer.email,
+          customer_code: paystackRes.customer.customer_code,
+        },
       },
       metadata: {
-        session_type: 'therapy_session',
+        session_type: "therapy_session",
         therapist_id: appointment.therapist,
-        appointment_date: appointment.datetime
-      }
+        appointment_date: appointment.datetime,
+      },
     });
 
     await payment.save();
 
     // Update appointment status
     await Appointment.findByIdAndUpdate(appointmentId, {
-      status: 'confirmed',
-      paidAt: new Date()
+      status: "confirmed",
+      paidAt: new Date(),
     });
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
-      message: 'Payment successful',
+      message: "Payment successful",
       data: {
         paymentId: payment._id,
         reference: payment.paystackReference,
         amount: PaystackService.koboToNaira(payment.amount),
         status: payment.status,
-        paidAt: payment.verifiedAt
-      }
+        paidAt: payment.verifiedAt,
+      },
     });
-
   } catch (error) {
-    console.error('chargeReturningCustomer error:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: 'Error processing payment',
-      error: error.message
+      message: "Error processing payment",
+      error: error.message,
     });
   }
 };
-
 
 module.exports = {
   getPaymentMethods,
