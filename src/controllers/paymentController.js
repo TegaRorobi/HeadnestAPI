@@ -286,7 +286,7 @@ const getPaymentTotal = async (req, res) => {
     // Find the appointment
     const appointment = await Appointment.findById(appointmentId)
       .populate('therapist', 'name specialization')
-      .lean(); // lean() makes it a plain JS object
+      .lean(); 
 
     if (!appointment) {
       return res.status(404).json({
@@ -323,7 +323,7 @@ const getPaymentTotal = async (req, res) => {
           specialization: appointment.therapist.specialization,
           datetime: appointment.datetime,
           duration: appointment.duration || '60 minutes',
-          status: appointment.status || 'pending',g
+          status: appointment.status || 'pending',
           paidAt: appointment.paidAt || null    
         },
         breakdown: [
