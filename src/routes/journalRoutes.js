@@ -4,8 +4,7 @@ const journalController = require('../controllers/journalController');
 const auth = require('../middlewares/authMiddleware');
 
 router.post('/', auth, journalController.createEntry);
-router.get('/', auth, journalController.getAllEntries);
-router.get('/my', auth, journalController.getUserEntries);
+router.get('/', auth, journalController.getEntries);
 router.get('/:id', auth, journalController.getEntryById);
 router.put('/:id', auth, journalController.updateEntry);
 router.delete('/:id', auth, journalController.deleteEntry);
