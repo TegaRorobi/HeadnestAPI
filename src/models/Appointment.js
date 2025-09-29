@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require('mongoose'); 
 
 const appointmentSchema = new mongoose.Schema({
   therapist: {
@@ -23,6 +23,22 @@ const appointmentSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+
+  //  add new fields for better tracking
+  status: {
+    type: String,
+    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
+    default: 'pending'
+  },
+  paidAt: {
+    type: Date
+  },
+  type: {
+    type: String,
+    enum: ['chat', 'audio', 'video'],
+    required: true
+  }
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Appointment', appointmentSchema);

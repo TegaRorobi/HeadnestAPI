@@ -1,5 +1,5 @@
 const Payment = require('../models/Payment');
-const Booking = require('../models/Booking');
+const Appointment = require('../models/Appointment');
 const PaystackService = require('../config/paystack');
 const crypto = require('crypto');
 
@@ -44,42 +44,42 @@ const getPaymentMethods = async (req, res) => {
 // Begin payment transaction
 const initiatePayment = async (req, res) => {
   try {
-    const { bookingId, paymentMethod } = req.body;
+    const { appointmentId, paymentMethod } = req.body;
     const userId = req.user.id;
     const userEmail = req.user.email;
 
-    if (!bookingId) {
+    if (!appointmentId) {
       return res.status(400).json({
         success: false,
-        message: 'Booking ID is required'
+        message: 'Appointment ID is required'
       });
     }
 
-    const booking = await Booking.findById(bookingId).populate('therapistId', 'name');
+    const appointment = await Appointment.findById(appointmentId).populate('therapist', 'name');
     
-    if (!booking) {
+    if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Booking not found'
+        message: 'Appointment not found'
       });
     }
 
-    if (booking.userId.toString() !== userId.toString()) {
+    if (appointment.user.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
-        message: 'You can only pay for your own bookings'
+        message: 'You can only pay for your own appointments'
       });
     }
 
     const existingPayment = await Payment.findOne({ 
-      bookingId, 
+      appointmentId, 
       status: 'success' 
     });
 
     if (existingPayment) {
       return res.status(400).json({
         success: false,
-        message: 'This booking has already been paid for'
+        message: 'This appointment has already been paid for'
       });
     }
 
@@ -96,11 +96,11 @@ const initiatePayment = async (req, res) => {
       reference: reference,
       callback_url: `${process.env.CLIENT_URL || 'http://localhost:3000'}/payment/callback`,
       metadata: {
-        bookingId: bookingId.toString(),
+        appointmentId: appointmentId.toString(),
         userId: userId.toString(),
-        therapistId: booking.therapistId._id.toString(),
-        therapistName: booking.therapistId.name,
-        appointmentDate: booking.appointmentDate,
+        therapistId: appointment.therapist._id.toString(),
+        therapistName: appointment.therapist.name,
+        appointmentDate: appointment.datetime,
         sessionType: 'therapy_session'
       }
     });
@@ -116,7 +116,7 @@ const initiatePayment = async (req, res) => {
     // Create payment record in database
     const payment = new Payment({
       userId,
-      bookingId,
+      appointmentId,
       paystackReference: reference,
       amount,
       currency: 'NGN',
@@ -129,8 +129,8 @@ const initiatePayment = async (req, res) => {
       },
       metadata: {
         session_type: 'therapy_session',
-        therapist_id: booking.therapistId._id,
-        appointment_date: booking.appointmentDate
+        therapist_id: appointment.therapist._id,
+        appointment_date: appointment.datetime
       }
     });
 
@@ -146,10 +146,10 @@ const initiatePayment = async (req, res) => {
         currency: 'NGN',
         authorization_url: paystackResponse.data.authorization_url,
         access_code: paystackResponse.data.access_code,
-        booking: {
-          id: booking._id,
-          therapist: booking.therapistId.name,
-          appointmentDate: booking.appointmentDate
+        appointment: {
+          id: appointment._id,
+          therapist: appointment.therapist.name,
+          appointmentDate: appointment.datetime
         }
       }
     });
@@ -166,7 +166,6 @@ const initiatePayment = async (req, res) => {
 
 
 // :::::::VERIFY IF THE PAYMENT IS SUCCESSFULL
-
 const verifyPayment = async (req, res) => {
   try {
     const { reference } = req.body;
@@ -240,10 +239,10 @@ const verifyPayment = async (req, res) => {
 
     await payment.save();
 
-    // If payment successful, update booking status
+    // If payment successful, update appointment status
     if (paymentStatus === 'success') {
-      await Booking.findByIdAndUpdate(payment.bookingId, { 
-        status: 'paid',
+      await Appointment.findByIdAndUpdate(payment.appointmentId, { 
+        status: 'confirmed',
         paidAt: new Date()
       });
     }
@@ -274,42 +273,39 @@ const verifyPayment = async (req, res) => {
 // :::::::GET THE TOTAL PAYMENT
 const getPaymentTotal = async (req, res) => {
   try {
-    const { bookingId } = req.query;
+    const { appointmentId } = req.query;
     const userId = req.user.id;
 
-    if (!bookingId) {
+    if (!appointmentId) {
       return res.status(400).json({
         success: false,
-        message: 'Booking ID is required'
+        message: 'Appointment ID is required'
       });
     }
 
-    // Find the booking
-    const booking = await Booking.findById(bookingId).populate('therapistId', 'name specialization');
+    // Find the appointment
+    const appointment = await Appointment.findById(appointmentId).populate('therapist', 'name specialization');
     
-    if (!booking) {
+    if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Booking not found'
+        message: 'Appointment not found'
       });
     }
 
-    // Check if user owns this booking
-    if (booking.userId.toString() !== userId.toString()) {
+    // Check if user owns this appointment
+    if (appointment.user.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
       });
     }
 
-    
     const basePrice = 15000;
-    
-    
     let finalPrice = basePrice;
     
-    // dynamic pricing
-    // if (booking.therapistId.specialization === 'Senior Therapist') {
+    // dynamic pricing (optional)
+    // if (appointment.therapist.specialization === 'Senior Therapist') {
     //   finalPrice = 20000;
     // }
     
@@ -321,18 +317,18 @@ const getPaymentTotal = async (req, res) => {
       success: true,
       message: 'Payment total calculated successfully',
       data: {
-        bookingId: booking._id,
+        appointmentId: appointment._id,
         pricing: {
           basePrice: basePrice,
           platformFee: platformFee,
           totalAmount: totalAmount,
           currency: 'NGN'
         },
-        booking: {
-          therapist: booking.therapistId.name,
-          specialization: booking.therapistId.specialization,
-          appointmentDate: booking.appointmentDate,
-          duration: booking.duration || '60 minutes'
+        appointment: {
+          therapist: appointment.therapist.name,
+          specialization: appointment.therapist.specialization,
+          appointmentDate: appointment.datetime,
+          duration: appointment.duration || '60 minutes'
         },
         breakdown: [
           {
@@ -395,9 +391,9 @@ const handleWebhook = async (req, res) => {
 
         await payment.save();
 
-        // Update booking status to paid
-        await Booking.findByIdAndUpdate(payment.bookingId, { 
-          status: 'paid',
+        // Update appointment status to confirmed
+        await Appointment.findByIdAndUpdate(payment.appointmentId, { 
+          status: 'confirmed',
           paidAt: new Date()
         });
 
@@ -443,7 +439,7 @@ const getPaymentStatus = async (req, res) => {
 
     // Find payment record
     const payment = await Payment.findOne({ paystackReference: reference })
-      .populate('bookingId', 'appointmentDate therapistId');
+      .populate('appointmentId', 'datetime therapist');
     
     if (!payment) {
       return res.status(404).json({
@@ -471,7 +467,7 @@ const getPaymentStatus = async (req, res) => {
         paymentMethod: payment.paymentMethod,
         verifiedAt: payment.verifiedAt,
         createdAt: payment.createdAt,
-        booking: payment.bookingId
+        appointment: payment.appointmentId
       }
     });
 
@@ -484,32 +480,32 @@ const getPaymentStatus = async (req, res) => {
   }
 };
 
-//// :::::::CHARGE RETURNING CUSTOMERS FOR FUTURE PAYMENT
+// :::::::CHARGE RETURNING CUSTOMERS FOR FUTURE PAYMENT
 const chargeReturningCustomer = async (req, res) => {
   try {
-    const { bookingId, authorizationCode } = req.body;
+    const { appointmentId, authorizationCode } = req.body;
     const userId = req.user.id;
     const userEmail = req.user.email;
 
-    if (!bookingId || !authorizationCode) {
+    if (!appointmentId || !authorizationCode) {
       return res.status(400).json({
         success: false,
-        message: 'Booking ID and authorization code are required'
+        message: 'Appointment ID and authorization code are required'
       });
     }
 
-    // Find the booking
-    const booking = await Booking.findById(bookingId);
+    // Find the appointment
+    const appointment = await Appointment.findById(appointmentId);
     
-    if (!booking) {
+    if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Booking not found'
+        message: 'Appointment not found'
       });
     }
 
     // Check ownership
-    if (booking.userId.toString() !== userId.toString()) {
+    if (appointment.user.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -545,7 +541,7 @@ const chargeReturningCustomer = async (req, res) => {
     // Create payment record
     const payment = new Payment({
       userId,
-      bookingId,
+      appointmentId,
       paystackReference: reference,
       amount,
       currency: 'NGN',
@@ -562,16 +558,16 @@ const chargeReturningCustomer = async (req, res) => {
       },
       metadata: {
         session_type: 'therapy_session',
-        therapist_id: booking.therapistId,
-        appointment_date: booking.appointmentDate
+        therapist_id: appointment.therapist,
+        appointment_date: appointment.datetime
       }
     });
 
     await payment.save();
 
-    // Update booking status
-    await Booking.findByIdAndUpdate(bookingId, { 
-      status: 'paid',
+    // Update appointment status
+    await Appointment.findByIdAndUpdate(appointmentId, { 
+      status: 'confirmed',
       paidAt: new Date()
     });
 

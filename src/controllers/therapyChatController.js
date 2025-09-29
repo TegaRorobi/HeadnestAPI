@@ -1,4 +1,6 @@
+
 const TherapyChat = require('../models/TherapyChat');
+
 
 const accessChatroom = async (req, res) => {
   try {
@@ -11,7 +13,7 @@ const accessChatroom = async (req, res) => {
     })
     .populate('senderId', 'name email')
     .sort({ createdAt: 1 })
-    .limit(100); 
+    .limit(100);
 
     res.status(200).json({
       success: true,
@@ -20,9 +22,9 @@ const accessChatroom = async (req, res) => {
         sessionId,
         sessionInfo: {
           bookingId: booking._id,
-          userId: booking.userId,
-          therapistId: booking.therapistId,
-          sessionDate: booking.appointmentDate
+          userId: booking.user,
+          therapistId: booking.therapist, 
+          sessionDate: booking.datetime 
         },
         messages: messages,
         messageCount: messages.length
@@ -64,6 +66,7 @@ const sendMessage = async (req, res) => {
 
     await newMessage.save();
 
+    // Populate sender info for response
     await newMessage.populate('senderId', 'name email');
 
     res.status(201).json({
@@ -81,14 +84,16 @@ const sendMessage = async (req, res) => {
   }
 };
 
+
 const exitChatroom = async (req, res) => {
   try {
     const { sessionId, userType } = req.session;
     const userId = req.user.id;
 
+
     const userName = req.user.name || (userType === 'therapist' ? 'Therapist' : 'User');
 
-    
+   
     const exitMessage = new TherapyChat({
       sessionId,
       senderId: userId,
@@ -118,6 +123,7 @@ const exitChatroom = async (req, res) => {
   }
 };
 
+
 const clearExpiredMessages = async (req, res) => {
   try {
   
@@ -145,7 +151,6 @@ const clearExpiredMessages = async (req, res) => {
   }
 };
 
-// /notify when someone Join/leave the chat
 const sendNotification = async (req, res) => {
   try {
     const { action } = req.body; 
@@ -159,9 +164,10 @@ const sendNotification = async (req, res) => {
       });
     }
 
-    // Get user name and Create notification message
+    // Get user name for notification
     const userName = req.user.name || (userType === 'therapist' ? 'Therapist' : 'User');
 
+    // Create notification message
     const notificationMessage = `${userName} has ${action} the chat session`;
 
     const notification = new TherapyChat({

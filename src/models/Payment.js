@@ -6,9 +6,10 @@ const paymentSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  bookingId: {
+ 
+  appointmentId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking',
+    ref: 'Appointment', 
     required: true
   },
   paystackReference: {
@@ -66,10 +67,9 @@ const paymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-
 paymentSchema.index({ paystackReference: 1 });
 paymentSchema.index({ userId: 1, status: 1 });
-paymentSchema.index({ bookingId: 1 });
+paymentSchema.index({ appointmentId: 1 }); 
 
 const Payment = mongoose.model('Payment', paymentSchema);
 

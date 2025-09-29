@@ -1,4 +1,5 @@
-const Booking = require('../models/Booking');
+
+const Appointment = require('../models/Appointment');
 
 const sessionAuthMiddleware = async (req, res, next) => {
   try {
@@ -17,8 +18,9 @@ const sessionAuthMiddleware = async (req, res, next) => {
       });
     }
 
-    // Finding the booking/session
-    const booking = await Booking.findById(sessionId);
+
+    // Find the booking/session
+    const booking = await Appointment.findById(sessionId);
     
     if (!booking) {
       return res.status(404).json({
@@ -28,8 +30,8 @@ const sessionAuthMiddleware = async (req, res, next) => {
     }
 
     // Check if user has access to this session
-    const hasAccess = booking.userId.toString() === userId.toString() || 
-                     booking.therapistId.toString() === userId.toString();
+    const hasAccess = booking.user.toString() === userId.toString() || 
+                     booking.therapist.toString() === userId.toString();
 
     if (!hasAccess) {
       return res.status(403).json({
@@ -38,9 +40,10 @@ const sessionAuthMiddleware = async (req, res, next) => {
       });
     }
 
-    const userType = booking.therapistId.toString() === userId.toString() ? 'therapist' : 'user';
+    // Determine user type and attach to request
+    const userType = booking.therapist.toString() === userId.toString() ? 'therapist' : 'user';
     
-  
+   
     req.session = {
       booking,
       sessionId,
@@ -48,7 +51,7 @@ const sessionAuthMiddleware = async (req, res, next) => {
       hasAccess: true
     };
 
-    next(); 
+    next();
 
   } catch (error) {
     res.status(500).json({
@@ -60,4 +63,3 @@ const sessionAuthMiddleware = async (req, res, next) => {
 };
 
 module.exports = sessionAuthMiddleware;
-

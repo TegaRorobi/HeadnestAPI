@@ -1,9 +1,9 @@
+
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const Booking = require('../models/Booking');
+const Appointment = require('../models/Appointment');
 const TherapyChat = require('../models/TherapyChat');
-require('dotenv').config();
 
 // Socket authentication middleware
 const authenticateSocket = async (socket, next) => {
@@ -51,29 +51,31 @@ const initializeSocket = (server) => {
         const { sessionId } = data;
         
         // Validate session access
-        const booking = await Booking.findById(sessionId);
-        if (!booking) {
+        const appointment = await Appointment.findById(sessionId);
+        if (!appointment) {
           return socket.emit('error', { message: 'Session not found' });
         }
 
-        //......Check if the user has access to this session
-        const hasAccess = booking.userId.toString() === socket.userId || 
-                         booking.therapistId.toString() === socket.userId;
+      
+        // Check if user has access to this session
+        const hasAccess = appointment.user.toString() === socket.userId || 
+                         appointment.therapist.toString() === socket.userId; 
 
         if (!hasAccess) {
           return socket.emit('error', { message: 'Access denied to this session' });
         }
 
-        //........Join the room
+        // Join the room
         const roomName = `therapy_${sessionId}`;
         socket.join(roomName);
         socket.currentSession = sessionId;
 
-        //......Determine user type
-        const userType = booking.therapistId.toString() === socket.userId ? 'therapist' : 'user';
+    
+        // Determine user type
+        const userType = appointment.therapist.toString() === socket.userId ? 'therapist' : 'user';
         socket.userType = userType;
 
-        // Notify chatroom that user joined
+        // Notify room that user joined
         socket.to(roomName).emit('user_joined', {
           userId: socket.userId,
           userName: socket.user.name,
@@ -142,7 +144,7 @@ const initializeSocket = (server) => {
           message: newMessage.message,
           messageType: newMessage.messageType,
           createdAt: newMessage.createdAt,
-          isFromSelf: false // Will be overridden by client
+          isFromSelf: false
         });
 
         console.log(`Message sent in session ${sessionId}: ${message.substring(0, 50)}...`);
